@@ -18,6 +18,8 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor,
 #  Boston, MA 02110-1301, USA.
 
+## version 0.1.0
+
 import gi
 gi.require_version('Peas', '1.0')
 #gi.require_version('Xed', '3.0')
@@ -50,8 +52,9 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
     tagLevelLen = len(tagLevel)
     
     # index 0 is default
-    bracketTypes = [
+    quoteTypes = [
         ['\u201C', '\u201D', "curly quotes"],
+        ['\u0022\u0022', '\u0022', "TML quotes"],
         ['\u0022', '\u0022', "straight quotes"],
         #  guillemet
         ['\u00AB', '\u00BB', "guillemet"]
@@ -154,12 +157,12 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         # return: [openMark, closeMark, "name of detected marks"] 
         
         i = 0
-        limit = len(self.bracketTypes)
+        limit = len(self.quoteTypes)
         found = None
         while (i <= limit):
             it = buf.get_start_iter()
             found = it.forward_search(
-                        self.bracketTypes[i][0],
+                        self.quoteTypes[i][0],
                         Gtk.TextSearchFlags.TEXT_ONLY, 
                         None
                         )
@@ -173,16 +176,16 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         else:
             infoText = "detected "
             
-        foundBracketType = self.bracketTypes[i]
-        print(infoText + foundBracketType[2])
-        return foundBracketType
+        foundQuoteTypes = self.quoteTypes[i]
+        print(infoText + foundQuoteTypes[2])
+        return foundQuoteTypes
 
         
     def _get_custom_tags(self, buf):
         # Ensure custon tags in place. Currently, there are 
         # three.
         tagTable = buf.get_tag_table ()
-        tags = [None, None, None]
+        tags = [None, None, None, None]
         tags[0] = tagTable.lookup (
             "narrow_mark"
             ) 
@@ -209,12 +212,28 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
                 "wide_mark",
                 background= "Violet"
                 )
+                
+        tags[3] = tagTable.lookup (
+            "sentence"
+            ) 
+        if tags[3] == None:
+            tags[3] = buf.create_tag (
+                "Sentence",
+                background= "Red"
+                )
+                
         return tags
 
     def _textMark(self, buf, it, tags):
         # called on sentence end. Puts a mark in every 
         # nine sentences
         self.countTotal = self.countTotal + 1
+
+        # for debugging
+        # Uncomment to mark all sentence starts
+        #markStartIt = buf.get_iter_at_offset(it.get_offset() - 1)
+        #buf.apply_tag(tags[3], markStartIt, it)
+
         if (self.count9 >= 9):
             self.count9 = 0
         
@@ -271,6 +290,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             if retSpeech:
                 #print(" speech start found")
                 limitIt = retSpeech[0]
+                resumeIt = retSpeech[1] 
             else:
                 limitIt = buf.get_end_iter()
 
@@ -291,8 +311,11 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             ## if there was direct speech, skip to end of speech then 
             # look again
             if retSpeech:
-                limitIt.forward_char()
-                retSpeech = limitIt.forward_search(
+                # Skip the found quote open. ResumIt is on the point 
+                # after the match 
+                #limitIt.forward_char()
+                #forward_chars
+                retSpeech = resumeIt.forward_search(
                     DIRECT_SPEECH_END,
                     Gtk.TextSearchFlags.TEXT_ONLY, 
                     None
