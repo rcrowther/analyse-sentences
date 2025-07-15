@@ -1,0 +1,7 @@
+Dump in the Xed plugins folder, likely,
+
+/usr/lib/x86_64-linux-gnu/xed/plugins
+
+Or simlink from/to that folder.
+
+It's written in Python, so should appear from then out.
