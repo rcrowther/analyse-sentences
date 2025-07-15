@@ -18,7 +18,7 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor,
 #  Boston, MA 02110-1301, USA.
 
-## version 0.1.0
+## version 0.2.0
 
 import gi
 gi.require_version('Peas', '1.0')
@@ -28,11 +28,6 @@ from gi.repository import GObject, Gio, Gtk, Gdk, Xed
 import gettext
 gettext.install("xed")
 
-#CURLY_BRACKET_OPEN = "\u201C"
-#CURLY_BRACKET_CLOSE = "\u201D"
-
-#DIRECT_SPEECH_START = CURLY_BRACKET_OPEN
-#DIRECT_SPEECH_END = CURLY_BRACKET_CLOSE
 
 
 # Anybodies guess where these are defined. But they work
@@ -54,6 +49,8 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
     # index 0 is default
     quoteTypes = [
         ['\u201C', '\u201D', "curly quotes"],
+        # TML must come before straight quotes, or will appearr to be 
+        # straight quotes
         ['\u0022\u0022', '\u0022', "TML quotes"],
         ['\u0022', '\u0022', "straight quotes"],
         #  guillemet
