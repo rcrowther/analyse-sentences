@@ -44,7 +44,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
     # the tag level for each three sentences
     # can be reset when reaches end
     tagLevel = [0, 0, 1, 0, 0, 1, 0, 0, 2]
-    tagLevelLen = len(tagLevel)
+    tagLevelLen = len(tagLevel) - 1
     
     # index 0 is default
     quoteTypes = [
@@ -228,25 +228,27 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
 
         # for debugging
         # Uncomment to mark all sentence starts
+        # TODO: A useful feature, but without preferences to set up...?
         #markStartIt = buf.get_iter_at_offset(it.get_offset() - 1)
         #buf.apply_tag(tags[3], markStartIt, it)
-
-        if (self.count9 >= 9):
+        
+        if (self.count9 >= 8):
             self.count9 = 0
         
             # Some kind of mark here
-            if (self.tagLevelIdx >= self.tagLevelLen):
-                self.tagLevelIdx = 0
-                self.widemarkCount = self.widemarkCount + 1
-                
             # only way I can think to get a new second iter                
             markStartIt = buf.get_iter_at_offset(it.get_offset() - 1)
             #print("idx: "+ str(self.tagLevel[self.tagLevelIdx]))
             buf.apply_tag(tags[ self.tagLevel[self.tagLevelIdx] ], markStartIt, it)
-            self.tagLevelIdx = self.tagLevelIdx + 1
 
-        # update the indecies
-        self.count9 = self.count9 + 1
+            if (self.tagLevelIdx >= self.tagLevelLen):
+                self.tagLevelIdx = 0
+                self.widemarkCount = self.widemarkCount + 1
+            else:
+                self.tagLevelIdx = self.tagLevelIdx + 1
+        else:
+            # update the indecies
+            self.count9 = self.count9 + 1
         return
             
     # Menu activate handlers
