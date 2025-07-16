@@ -18,7 +18,7 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor,
 #  Boston, MA 02110-1301, USA.
 
-## version 0.2.0
+## version 0.2.1
 
 import gi
 gi.require_version('Peas', '1.0')
@@ -48,11 +48,12 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
     
     # index 0 is default
     quoteTypes = [
-        ['\u201C', '\u201D', "curly quotes"],
+        ['\u201C', '\u201D', "curly"],
         # TML must come before straight quotes, or will appearr to be 
         # straight quotes
-        ['\u0022\u0022', '\u0022', "TML quotes"],
-        ['\u0022', '\u0022', "straight quotes"],
+        ['\u0022\u0022', '\u0022', "TML"],
+        ['\u0022', '\u0022', "straight"],
+        ['\u2018', '\u2019', "single"],
         #  guillemet
         ['\u00AB', '\u00BB', "guillemet"]
     ]
@@ -154,7 +155,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         # return: [openMark, closeMark, "name of detected marks"] 
         
         i = 0
-        limit = len(self.quoteTypes)
+        limit = len(self.quoteTypes) - 1
         found = None
         while (i <= limit):
             it = buf.get_start_iter()
@@ -169,10 +170,9 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             
         if (not found):
             i = 0
-            infoText = "no quote marks detected, assuming "
+            infoText = "no quote style detected, assuming: "
         else:
-            infoText = "detected "
-            
+            infoText = "detected quote style: "
         foundQuoteTypes = self.quoteTypes[i]
         print(infoText + foundQuoteTypes[2])
         return foundQuoteTypes
