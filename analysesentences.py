@@ -18,7 +18,7 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor,
 #  Boston, MA 02110-1301, USA.
 
-## version 0.2.1
+## version 0.3.0
 
 import gi
 gi.require_version('Peas', '1.0')
@@ -65,10 +65,14 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         # Insert menu items
         self._insert_menu()
                        
+        # Get and set the statusbar context
+        statusbar = self.get_statusbar()
+        self.statusbarContext = statusbar.get_context_id("AnalysePlugin")
+
+        #print("statusbar: " + str(self.statusbarContext))
+        
         # The handler is for a signal to clear the view
-        self._handlers = [
-            None
-            ]
+        self._handlers = [None]
             
         # instance variables
         self.countTotal = 0
@@ -88,17 +92,25 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
                     view.disconnect(h)
         self.handlers = None
         
-
+    def get_statusbar(self):
+        return self.window.get_statusbar()
+        
     def _insert_menu(self):
         manager = self.window.get_ui_manager()
 
         # Create a new action group
         self._action_group = Gtk.ActionGroup(name="XedAnalyseActions")
-        self._action_group.add_actions([
+        self._action_group.add_actions(
+            [
             ("AnalyseAction", None, _("_Analyse"),
             "<Ctrl>3", None,
             self.on_analyse_activate)
-            ])
+            ,
+            ("AnalyseFromCursorAction", None, _("_Analyse From Cursor"),
+            "<Ctrl>4", None,
+            self.on_analyse_from_cursor_activate)
+            ],
+            )
          
         # Insert the action group
         manager.insert_action_group(self._action_group)
@@ -111,6 +123,13 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
                        "AnalyseAction",
                        Gtk.UIManagerItemType.MENUITEM,
                        False)
+                       
+        manager.add_ui(self._ui_id,
+                       MENU_PATH,
+                       "AnalyseFromCursorAction",
+                       "AnalyseFromCursorAction",
+                       Gtk.UIManagerItemType.MENUITEM,
+                       False)                       
                        
                                
     def _remove_menu(self):
@@ -130,7 +149,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         self._action_group = None
 
 
-    # It's not key press event, it....mouse press too
+    # It's not key press event, its....mouse press too
     def connect(self, view):
         #print("connect")
         self._handlers[0] = view.connect(
@@ -153,7 +172,6 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         # assuming they are used consistently (since preference is too 
         # much of a battle)
         # return: [openMark, closeMark, "name of detected marks"] 
-        
         i = 0
         limit = len(self.quoteTypes) - 1
         found = None
@@ -170,7 +188,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             
         if (not found):
             i = 0
-            infoText = "no quote style detected, assuming: "
+            infoText = "assumed quote style: "
         else:
             infoText = "detected quote style: "
         foundQuoteTypes = self.quoteTypes[i]
@@ -211,11 +229,11 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
                 )
                 
         tags[3] = tagTable.lookup (
-            "sentence"
+            "sentence_mark"
             ) 
         if tags[3] == None:
             tags[3] = buf.create_tag (
-                "Sentence",
+                "sentence_mark",
                 background= "Red"
                 )
                 
@@ -236,7 +254,7 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             self.count9 = 0
         
             # Some kind of mark here
-            # only way I can think to get a new second iter                
+            # only way I can think to get a new iter                
             markStartIt = buf.get_iter_at_offset(it.get_offset() - 1)
             #print("idx: "+ str(self.tagLevel[self.tagLevelIdx]))
             buf.apply_tag(tags[ self.tagLevel[self.tagLevelIdx] ], markStartIt, it)
@@ -247,21 +265,14 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             else:
                 self.tagLevelIdx = self.tagLevelIdx + 1
         else:
-            # update the indecies
+            # update the indicies
             self.count9 = self.count9 + 1
         return
-            
-    # Menu activate handlers
-    def on_analyse_activate(self, action, user_data=None):
-        view = self.window.get_active_view()
-        #         active = self.view.get_editable() 
-        buf = view.get_buffer()
+    
+    
+    def tag_between(self, buf, startIt, endIt):
         tags = self._get_custom_tags(buf)
-        
-        it = buf.get_start_iter()
-        limitIt = buf.get_start_iter()
-        markStartIt = buf.get_start_iter() 
-        
+
         # init the instance level variables
         self.countTotal = 0
         self.count9 = 0
@@ -273,28 +284,38 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         DIRECT_SPEECH_START = quoteData[0]
         DIRECT_SPEECH_END = quoteData[1]
         
+        # lpcal varriable
+        # limit currently searching to
+        limitIt = None
+        
+        # iterator can be startIt, not stashed
+        it = startIt
+        
+        # is there any direct speech, and it's limits
+        retSpeech = None
+
+
         ## TODO:
         # manual ellipse
         while(True):
-            # find any direct speech
-            # i.e. find the strech for senteence looks
+            # Test for direct speech
             # ret form None|[startIt, endIt]
             retSpeech = it.forward_search(
                 DIRECT_SPEECH_START,
                 Gtk.TextSearchFlags.TEXT_ONLY, 
-                None
+                endIt
                 )
             
-            # If find any, look up to there, else it's what remains
+            # If find any, look up to DIRECT_SPEECH_START, else look in
+            # the given range
             if retSpeech:
-                #print(" speech start found")
                 limitIt = retSpeech[0]
                 resumeIt = retSpeech[1] 
             else:
-                limitIt = buf.get_end_iter()
-
-                
-            ## look for sentences until at limit
+                limitIt = endIt
+                        
+        
+            # sentence count in range
             # There's an issue. at a file end, a sentence may not be 
             # found, yet the iter falls short of the endd iter. So test
             # finding return also
@@ -304,46 +325,75 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
             while((it.compare(limitIt) < 0) and found):
                 self._textMark(buf, it, tags)
                 found = it.forward_sentence_end()
-                #print("sentence found pos: " + str(it.get_offset()) + "limiit ;" + str(limitIt.get_offset()))
-
                     
-            ## if there was direct speech, skip to end of speech then 
-            # look again
+            # if direct speech, skip to end of speech then look again
+            # else quit
             if retSpeech:
-                # Skip the found quote open. ResumIt is on the point 
+                # Look for speech end. ResumeIt is on the point 
                 # after the match 
-                #limitIt.forward_char()
-                #forward_chars
                 retSpeech = resumeIt.forward_search(
                     DIRECT_SPEECH_END,
                     Gtk.TextSearchFlags.TEXT_ONLY, 
-                    None
+                    endIt
                     )
                 if retSpeech:
+                    # tag and count as a sentence, then resume normal
+                    # sentence lookups
                     # Won't handle trailing punctuation like '"bingo".'
                     # Or '"Noooo!", shee shrieked.'. But that's a 
                     # limitattion of TextView's parsing ability, too 
                     # much to fix. R.C.
                     it = retSpeech[1]
-                    #print(" found speech end" + str(it.get_offset()))
                     self._textMark(buf, it, tags)
                 else:
-                    it = buf.get_end_iter()
+                    #! quotes not closed
+                    # statusbar warning
+                    msg = "Aborted: quotes not closed"
+                    statusbar = self.get_statusbar()
+                    statusbar.push (
+                                    self.statusbarContext,
+                                    msg
+                                    )
+                                    
+                    # error printout
+                    msg = "Offset:" + str(resumeIt.get_offset()) + ": Aborted: quotes not closed: expected '" + DIRECT_SPEECH_END + "'"
+                    print(msg)
+                    break
             else:
                 # processed until end
+                # statusbar results
+                msg = 'sentences: ' + str(self.countTotal) + ', wide: ' + str(self.widemarkCount)
+                statusbar = self.get_statusbar()
+                statusbar.push (
+                                self.statusbarContext,
+                                msg
+                                )
                 break
-
-        print("sentence count: " + str(self.countTotal))
-        print("widemark count: " + str(self.widemarkCount))
         
-        #xed_statusbar_flash_message (
-        #    XED_STATUSBAR (searchbar->window->priv->statusbar),
-        #    searchbar->window->priv->generic_message_cid,
-        #    _("No matches found"));
-            
-        self.connect(view)    
+                
+    def on_analyse_from_cursor_activate(self, action, user_data=None):
+        view = self.window.get_active_view()
+        buf = view.get_buffer()
+        
+        # get iter at cursor
+        it = buf.get_iter_at_mark(buf.get_insert())
+        self.tag_between(buf, it, buf.get_end_iter())    
+
+        self.connect(view)
         return Gdk.EVENT_STOP
-             
+
+    
+    def on_analyse_activate(self, action, user_data=None):
+        view = self.window.get_active_view()
+        buf = view.get_buffer()
+        
+        # get iter at text start
+        self.tag_between(buf, buf.get_start_iter(), buf.get_end_iter())    
+
+        self.connect(view)
+        return Gdk.EVENT_STOP
+        
+        
     def on_analyse_deactivate(self):
         view = self.window.get_active_view()
         #         active = self.view.get_editable() 
@@ -353,10 +403,11 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
         itStart = buf.get_start_iter()  
         itEnd = buf.get_end_iter() 
 
-        tags = [None, None, None]
+        tags = [None, None, None, None]
         tags[0] = tagTable.lookup ("narrow_mark")
         tags[1] = tagTable.lookup ("middle_mark")
         tags[2] = tagTable.lookup ("wide_mark")
+        tags[3] = tagTable.lookup ("sentence_mark")
 
         for tag in tags:
             if (tag != None):
@@ -365,14 +416,17 @@ class AnalyseSentencesPlugin(GObject.Object, Xed.WindowActivatable):
                     itStart,
                     itEnd 
                     )
+                    
+        # remove the message, if present
+        statusbar = self.get_statusbar()
+        statusbar.pop(self.statusbarContext)
 
 
     def on_key_press_event(self, view, event):
-        #print("keypress1!!!")
         # Ignore CNTRL and ALT 
         if event.state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK):
             return False
-        #print("keypress2!!!")
+
         self.on_analyse_deactivate()
         self.disconnect(view)
         
