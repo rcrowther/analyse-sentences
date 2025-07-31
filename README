@@ -1,7 +1,15 @@
 Dump in the Xed plugins folder, likely,
 
-/usr/lib/x86_64-linux-gnu/xed/plugins
+    /usr/lib/x86_64-linux-gnu/xed/plugins
 
-Or simlink from/to that folder.
+Or symlink from that folder to the source,
 
+    sudo ln -s /place/of/code analyse-sentences
+
+Then need to close all instances of Xed for a restart. On restart, the plugin should be detected. Then the plugin needs to be activated in,
+
+> Edit > Preferences > Plugins
+
+Then the new menu items should appear.
+ 
 It's written in Python, so should appear from then out.
